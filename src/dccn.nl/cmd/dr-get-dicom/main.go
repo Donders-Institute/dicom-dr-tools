@@ -39,12 +39,7 @@ func init() {
 	opts_verbose = flag.Bool("v", false, "set to print debug messages")
 	flag.Usage = usage
 	flag.Parse()
-}
 
-func usage() {
-	fmt.Printf("\nUsage: %s [OPTIONS]\n", os.Args[0])
-	fmt.Printf("\nOPTIONS:\n")
-	flag.PrintDefaults()
 	// set logging
 	log.SetOutput(os.Stderr)
 
@@ -54,6 +49,12 @@ func usage() {
     		llevel = log.DebugLevel
 	}
 	log.SetLevel(llevel)
+}
+
+func usage() {
+	fmt.Printf("\nUsage: %s [OPTIONS]\n", os.Args[0])
+	fmt.Printf("\nOPTIONS:\n")
+	flag.PrintDefaults()
 }
 
 func main() {
@@ -78,7 +79,7 @@ func main() {
 func getOneDicom(ns_coll string) (chan string) {
 
 	// define the query
-	query := "SELECT COLL_NAME WHERE COLL_NAME LIKE '" + ns_coll + "/%" + *opts_date + "%' AND DATA_NAME != ''"
+	query := "SELECT COLL_NAME WHERE COLL_NAME LIKE '" + ns_coll + "/%" + *opts_date + "%'"
 
 	// Disable output buffering, enable streaming
 	o := cmd.Options{
@@ -89,9 +90,11 @@ func getOneDicom(ns_coll string) (chan string) {
 	collMap := make(map[string]bool)
 	mutex := &sync.Mutex{}
 	iquestCmdC := cmd.NewCmdOptions(o, "iquest", "--no-page", "%s", query)
+
 	s := iquestCmdC.Start()
+	m := 0
 	go func() {
-		i := 0
+		Loop:
 		for {
 			select {
 			case line := <-iquestCmdC.Stdout:
@@ -114,14 +117,15 @@ func getOneDicom(ns_coll string) (chan string) {
 				if st.Exit != 0 {
 					log.Error(st.Error)
 				}
-				i = 1
-			}
-
-			if i == 1 && len(iquestCmdC.Stdout) == 0 && len(iquestCmdC.Stderr) == 0 {
-				close(chanColls)
-				break
+				m = 1
+			default:
+				if m == 1 && len(iquestCmdC.Stdout) == 0 && len(iquestCmdC.Stderr) == 0 {
+					break Loop
+				}
 			}
 		}
+		log.Debug("chanColls closed")
+		close(chanColls)
 	}()
 
 	// spin up workers to retrieve individual collections
@@ -140,6 +144,7 @@ func getOneDicom(ns_coll string) (chan string) {
 	 			iquestCmdF := cmd.NewCmd("iquest", "--no-page", "%s/%s", qryf)
 				s := <-iquestCmdF.Start()
 				for _, l := range s.Stdout {
+					// this query contains no data
 					if strings.Contains(l,"CAT_NO_ROWS_FOUND") {
 						continue
 					}
@@ -157,6 +162,7 @@ func getOneDicom(ns_coll string) (chan string) {
 			}
 			n1--
 			if n1 == 0 {
+				log.Debug("chanFiles closed")
 				close(chanFiles)
 			}
 		}()
@@ -181,6 +187,7 @@ func getOneDicom(ns_coll string) (chan string) {
 			}
 			n2--
 			if n2 == 0 {
+				log.Debug("chanDicoms closed")
 				close(chanDicoms)
 			}
 		}()
