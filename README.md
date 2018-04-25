@@ -3,8 +3,8 @@ Tools for working on the DICOM data in the Donders Repository
 
 ## Requirement
 
+* [Go](https://golang.org) for building the code
 * [iRODS icommands](https://irods.org/download/)
-* [Go](https://golang.org)
 
 ## Build
 
