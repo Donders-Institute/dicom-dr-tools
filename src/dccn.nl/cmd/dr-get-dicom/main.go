@@ -10,8 +10,6 @@ import (
 	"regexp"
 	"errors"
 	"strings"
-	"archive/tar"
-	"compress/gzip"
 	"path/filepath"
 	"github.com/go-cmd/cmd"
 	log "github.com/sirupsen/logrus"
@@ -270,66 +268,22 @@ func downloadDicom(path string) (string, error) {
 		return "", st.Error
 	}
 
-	// the downloaded file is a zip file containg entire experiment (subject/session)
-	// don't do anything; because we have all the data locally.
-	if isZipFile(loc) {
-		return loc, nil
-	}
+	// extract the dicom file.
+	dicomExtractor := GetDicomExtractor(loc)
+	fdicom, nil := dicomExtractor.Extract(loc)
 
-	// the downloaded file itself is already a DICOM file
-	if isImaFile(loc) {
-		// make command for downloading full dataset
-		dir_src := filepath.Dir( filepath.Dir(path) )
-		if err := makeDownloadCmd(dir_src, dir); err != nil {
+	// create script to download full session data.
+	if ! isZipFile(loc) {
+		// create command for downloading whole session data.
+		srcDir := filepath.Dir(path)
+		if isImaFile(loc) {
+			srcDir = filepath.Dir(srcDir)
+		}
+		if err := makeDownloadCmd(srcDir, dir); err != nil {
 			log.Warn(fmt.Sprintf("cannot write command: %s\n", err))
 		}
-		return loc, nil
 	}
-
-	// open the gizpped archive: file -> gzip -> tar
-	f, err := os.Open(loc)
-	if err != nil {
-		return "", err
-	}
-	a, err := gzip.NewReader(f)
-	if err != nil {
-		return "", err
-	}
-	tr := tar.NewReader(a)
-
-	defer func() {
-		a.Close()
-		f.Close()
-		os.Remove(loc)
-	}()
-
-	// extracted dicom filename
-	var fdicom string
-	for {
-		h, err := tr.Next()
-		if err == io.EOF {
-			return "", errors.New("empty archive: " + loc)
-		}
-		if h.Typeflag == tar.TypeDir {
-			continue
-		}
-		if h.Typeflag == tar.TypeReg {
-			// output file
-			fdicom = filepath.Join(dir, filepath.Base(h.Name))
-
-			if err := copyReaderToPath(tr, fdicom, os.FileMode(h.Mode)); err != nil {
-				return "", err
-			}
-
-			log.Debug(fmt.Sprintf("DICOM file extracted: %s", fdicom))
-
-			// make command for downloading full dataset
-			if err := makeDownloadCmd(filepath.Dir(path), dir); err != nil {
-				log.Warn(fmt.Sprintf("cannot write command: %s\n", err))
-			}
-			return fdicom, nil
-		}
-	}
+	return fdicom, nil
 }
 
 
@@ -358,7 +312,7 @@ func makeDownloadCmd(sourceDir string, destDir string) error {
 	f, _  := os.OpenFile(fname, os.O_CREATE|os.O_RDWR, os.FileMode(0755))
 	defer f.Close()
 				
-	cmd := fmt.Sprintf("irsync -r i:%s %s", sourceDir, destDir)
+	cmd := fmt.Sprintf("irsync -r 'i:%s' '%s'", sourceDir, destDir)
 	_,err := f.Write([]byte(cmd))
 
 	return err
