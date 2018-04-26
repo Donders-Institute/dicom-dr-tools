@@ -233,7 +233,7 @@ func isZipFile(path string) bool {
 }
 
 // downloadDicom downloads a data object from iRODS, and extracts/saves one DICOM file.
-// On succes, the path of the file is returned.
+// On succes, the path of the saved file is returned.
 //
 // This function takes into account the following situations:
 //
