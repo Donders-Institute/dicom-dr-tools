@@ -130,7 +130,7 @@ func getOneDicom(ns_coll string) (chan string) {
 
 	// spin up workers to retrieve individual collections
 	chanFiles := make(chan string, 2*MAX_DOWNLOAD_W)
-	n1 := MAX_DOWNLOAD_W
+	chanSync1 := make(chan byte)
 	for i := 0; i < MAX_DOWNLOAD_W ; i++ {
 		go func() {
 			for {
@@ -160,17 +160,21 @@ func getOneDicom(ns_coll string) (chan string) {
 					break
 				}
 			}
-			n1--
-			if n1 == 0 {
-				log.Debug("chanFiles closed")
-				close(chanFiles)
-			}
+			chanSync1 <-'0'
 		}()
 	}
 
+	// closing up chanFiles
+	go func() {
+		// blocking call to wait all workers are finished
+		workerWaiter(MAX_DOWNLOAD_W, &chanSync1)
+		// all workers are finished, closing the channel for querying collection files
+		close(chanFiles)
+	}()
+
 	// spin up workers to download the dicom series tar.gz file in parallel
 	chanDicoms := make(chan string, MAX_DOWNLOAD_W)
-	n2 := MAX_DOWNLOAD_W
+	chanSync2  := make(chan byte)
 	for i := 0; i < MAX_DOWNLOAD_W ; i++ {
 		go func() {
 			for {
@@ -185,17 +189,34 @@ func getOneDicom(ns_coll string) (chan string) {
 				}
 				chanDicoms <- fdicom
 			}
-			n2--
-			if n2 == 0 {
-				log.Debug("chanDicoms closed")
-				close(chanDicoms)
-			}
+			chanSync2 <-'0'
 		}()
 	}
+
+	// closing up chanDicoms
+	go func() {
+		// blocking call to wait all workers are finished
+		workerWaiter(MAX_DOWNLOAD_W, &chanSync2)
+		// all workers are finished, closing the channel for downloading/extracting DICOM file
+		close(chanDicoms)
+	}()
 
 	return chanDicoms
 }
 
+// workerWaiter waits all workers to send a "finish" signal to the chanSync channel.
+// When the function receive signals from an expected number of workers, it closes up
+// the chanSync channel, and returns.
+func workerWaiter(nworker int, chanSync *chan byte) {
+	i := 0
+	for i < nworker {
+		<-*chanSync
+		i++
+	}
+	close(*chanSync)
+}
+
+// isImaFile checks wether the given path has suffix ".IMA".
 func isImaFile(path string) bool {
 	if filepath.Ext(path) == ".IMA" {
 		return true
@@ -203,6 +224,7 @@ func isImaFile(path string) bool {
 	return false
 }
 
+// isZipFile checks wether the given path has suffix ".zip".
 func isZipFile(path string) bool {
 	if filepath.Ext(path) == ".zip" {
 		return true
@@ -309,6 +331,7 @@ func downloadDicom(path string) (string, error) {
 		}
 	}
 }
+
 
 // copyReaderToPath copies data from the reader to a file referred by the path,
 // with a given file mode.
