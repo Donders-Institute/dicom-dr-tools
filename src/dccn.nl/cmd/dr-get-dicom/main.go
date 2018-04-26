@@ -272,7 +272,7 @@ func downloadDicom(path string) (string, error) {
 	dicomExtractor := GetDicomExtractor(loc)
 	fdicom, nil := dicomExtractor.Extract(loc)
 
-	// create script to download full session data.
+	// create script for downloading full session data.
 	if ! isZipFile(loc) {
 		// create command for downloading whole session data.
 		srcDir := filepath.Dir(path)
