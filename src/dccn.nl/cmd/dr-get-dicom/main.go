@@ -8,11 +8,11 @@ import (
 	"flag"
 	"time"
 	"regexp"
-	"strings"
 	"errors"
-	"path/filepath"
+	"strings"
 	"archive/tar"
 	"compress/gzip"
+	"path/filepath"
 	"github.com/go-cmd/cmd"
 	log "github.com/sirupsen/logrus"
 )
