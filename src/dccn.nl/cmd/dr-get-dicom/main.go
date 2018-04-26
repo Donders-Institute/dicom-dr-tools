@@ -167,7 +167,7 @@ func getOneDicom(ns_coll string) (chan string) {
 	// closing up chanFiles
 	go func() {
 		// blocking call to wait all workers are finished
-		workerWaiter(MAX_DOWNLOAD_W, &chanSync1)
+		waitWorkers(MAX_DOWNLOAD_W, &chanSync1)
 		// all workers are finished, closing the channel for querying collection files
 		close(chanFiles)
 	}()
@@ -196,7 +196,7 @@ func getOneDicom(ns_coll string) (chan string) {
 	// closing up chanDicoms
 	go func() {
 		// blocking call to wait all workers are finished
-		workerWaiter(MAX_DOWNLOAD_W, &chanSync2)
+		waitWorkers(MAX_DOWNLOAD_W, &chanSync2)
 		// all workers are finished, closing the channel for downloading/extracting DICOM file
 		close(chanDicoms)
 	}()
@@ -204,10 +204,10 @@ func getOneDicom(ns_coll string) (chan string) {
 	return chanDicoms
 }
 
-// workerWaiter waits all workers to send a "finish" signal to the chanSync channel.
+// waitWorkers waits all workers to send a "finish" signal to the chanSync channel.
 // When the function receive signals from an expected number of workers, it closes up
 // the chanSync channel, and returns.
-func workerWaiter(nworker int, chanSync *chan byte) {
+func waitWorkers(nworker int, chanSync *chan byte) {
 	i := 0
 	for i < nworker {
 		<-*chanSync
