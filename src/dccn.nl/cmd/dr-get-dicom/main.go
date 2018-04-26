@@ -128,7 +128,7 @@ func getOneDicom(ns_coll string) (chan string) {
 		close(chanColls)
 	}()
 
-	// spin up workers to retrieve individual collections
+	// spin up workers to query files in individual collections
 	chanFiles := make(chan string, 2*MAX_DOWNLOAD_W)
 	chanSync1 := make(chan byte)
 	for i := 0; i < MAX_DOWNLOAD_W ; i++ {
