@@ -17,13 +17,13 @@ import (
 
 const (
         // DR_NS_DCCN is the DCCN's collection namespace in the Donders Repository
-	DR_NS_DCCN  = "/rdm/di/dccn"
+	DR_NS_DCCN  = "/nl.ru.donders/di/dccn"
         // MAX_DOWNLOAD_W defines max. number of concurrent downloading threads 
 	MAX_DOWNLOAD_W  = 4
 )
 
 // DR_NS_COLLS defines the catchall collections in the Donders Repository
-var DR_NS_COLLS = []string {"DAC_3055010.01_490","DAC_3010000.01_173"}
+var DR_NS_COLLS = []string {"DAC_3055010.01_490"}
 
 var opts_date *string
 var opts_ddir *string
